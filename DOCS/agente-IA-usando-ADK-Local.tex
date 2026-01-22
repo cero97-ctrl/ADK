@@ -1,0 +1,644 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\geometry{a4paper, margin=2cm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{graphicx}
+
+\definecolor{codebackground}{rgb}{0.95,0.95,0.92}
+\definecolor{codecomment}{rgb}{0.5,0.5,0.5}
+\definecolor{codekeyword}{rgb}{0,0,0.5}
+\definecolor{codestring}{rgb}{0.58,0,0.82}
+
+\lstdefinestyle{localstyle}{
+    backgroundcolor=\color{codebackground},
+    commentstyle=\color{codecomment},
+    keywordstyle=\color{codekeyword},
+    numberstyle=\tiny\color{codecomment},
+    stringstyle=\color{codestring},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    framerule=0.5pt
+}
+
+\title{Guía para Desarrollo Local de Agentes de IA con Google Agent Development Kit}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Requerimientos del Sistema}
+\subsection{Requerimientos de Hardware Mínimos y Recomendados}
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|p{6cm}|p{6cm}|}
+\hline
+\textbf{Componente} & \textbf{Mínimo} & \textbf{Recomendado} \\
+\hline
+Procesador (CPU) & Intel i5 de 8ª generación o AMD equivalente & Intel i7/i9 de 11ª+ generación o AMD Ryzen 7/9 \\
+\hline
+Memoria RAM & 16 GB DDR4 & 32 GB DDR4 o superior \\
+\hline
+Almacenamiento & 256 GB SSD (50 GB libres) & 512 GB NVMe SSD o superior \\
+\hline
+GPU (Opcional) & Integrada & NVIDIA RTX 3060+ con 8+ GB VRAM (para modelos locales) \\
+\hline
+Sistema Operativo & Windows 10, macOS 10.15+, Ubuntu 20.04+ & Ubuntu 22.04 LTS o Windows 11 con WSL2 \\
+\hline
+Conexión Internet & Banda ancha para descargas & Estable para APIs en la nube \\
+\hline
+\end{tabular}
+\caption{Especificaciones de hardware para desarrollo local}
+\end{table}
+
+\subsection{Requerimientos de Software Esenciales}
+\begin{itemize}[leftmargin=*]
+\item \textbf{Sistema Operativo}: 
+  \begin{itemize}
+  \item Windows 10/11 con WSL2 (Windows Subsystem for Linux 2)
+  \item Ubuntu 20.04 LTS o superior (recomendado)
+  \item macOS 12 Monterey o superior
+  \end{itemize}
+  
+\item \textbf{Entorno Python}: 
+  \begin{itemize}
+  \item Python 3.9, 3.10 o 3.11 (3.12 puede tener incompatibilidades)
+  \item pip 23.0 o superior
+  \item virtualenv o conda para manejo de entornos
+  \end{itemize}
+
+\item \textbf{Herramientas de Desarrollo}:
+  \begin{itemize}
+  \item Git 2.30+ para control de versiones
+  \item Docker Desktop (opcional, para contenedores)
+  \item Visual Studio Code o PyCharm IDE
+  \end{itemize}
+
+\item \textbf{Google Cloud SDK}:
+  \begin{itemize}
+  \item CLI de gcloud instalada y configurada
+  \item Cuenta de Google Cloud Platform activa
+  \item Proyecto GCP creado con facturación habilitada
+  \end{itemize}
+
+\item \textbf{Controladores GPU (Opcional)}:
+  \begin{itemize}
+  \item NVIDIA CUDA Toolkit 11.8 o 12.0
+  \item cuDNN compatible con la versión de CUDA
+  \end{itemize}
+\end{itemize}
+
+\section{Configuración Inicial del Entorno Local}
+
+\subsection{Paso 1: Instalación del Sistema Base}
+\begin{enumerate}
+\item \textbf{Windows con WSL2 (si aplica)}:
+\begin{lstlisting}[style=localstyle, language=bash]
+# En PowerShell como Administrador
+wsl --install
+wsl --set-default-version 2
+# Instalar Ubuntu desde Microsoft Store
+wsl -l -v  # Verificar instalacion
+\end{lstlisting}
+
+\item \textbf{Actualización del sistema (Linux/macOS)}:
+\begin{lstlisting}[style=localstyle, language=bash]
+# Ubuntu/Debian
+sudo apt update && sudo apt upgrade -y
+sudo apt install build-essential curl git -y
+
+# macOS
+xcode-select --install
+brew update && brew upgrade
+\end{lstlisting}
+\end{enumerate}
+
+\subsection{Paso 2: Instalación y Configuración de Python}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Verificar Python existente
+python3 --version
+pip3 --version
+
+# Instalar Python 3.11 si es necesario (Ubuntu)
+sudo apt install python3.11 python3.11-venv python3.11-dev -y
+
+# Crear entorno virtual
+python3.11 -m venv ~/adk-env
+source ~/adk-env/bin/activate  # Linux/macOS
+# En Windows (PowerShell): ~\adk-env\Scripts\Activate.ps1
+
+# Actualizar pip y herramientas basicas
+pip install --upgrade pip setuptools wheel
+\end{lstlisting}
+
+\subsection{Paso 3: Instalación de Google Cloud SDK}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Linux (Ubuntu)
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+sudo apt update && sudo apt install google-cloud-cli -y
+
+# macOS
+brew install --cask google-cloud-sdk
+
+# Windows (PowerShell)
+(New-Object Net.WebClient).DownloadFile("https://dl.google.com/dl/cloudsdk/channels/rapid/GoogleCloudSDKInstaller.exe", "$env:Temp\GoogleCloudSDKInstaller.exe")
+& "$env:Temp\GoogleCloudSDKInstaller.exe"
+
+# Inicializar y autenticar
+gcloud init
+gcloud auth application-default login
+gcloud auth login
+\end{lstlisting}
+
+\subsection{Paso 4: Configuración del Proyecto GCP}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Crear nuevo proyecto o usar existente
+gcloud projects create mi-proyecto-adk --name="Proyecto ADK Local"
+gcloud config set project mi-proyecto-adk
+
+# Habilitar APIs necesarias
+gcloud services enable aiplatform.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
+gcloud services enable iamcredentials.googleapis.com
+
+# Configurar region por defecto
+gcloud config set compute/region us-central1
+gcloud config set compute/zone us-central1-a
+
+# Crear cuenta de servicio
+gcloud iam service-accounts create adk-local-sa \
+    --display-name="Cuenta de servicio ADK Local"
+
+# Otorgar permisos
+gcloud projects add-iam-policy-binding mi-proyecto-adk \
+    --member="serviceAccount:adk-local-sa@mi-proyecto-adk.iam.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
+
+# Generar clave de servicio (JSON)
+gcloud iam service-accounts keys create ~/adk-key.json \
+    --iam-account=adk-local-sa@mi-proyecto-adk.iam.gserviceaccount.com
+
+# Establecer variable de entorno
+export GOOGLE_APPLICATION_CREDENTIALS=~/adk-key.json
+# En Windows: $env:GOOGLE_APPLICATION_CREDENTIALS="C:\Users\Usuario\adk-key.json"
+\end{lstlisting}
+
+\section{Instalación y Configuración del ADK}
+
+\subsection{Paso 5: Instalación del Agent Development Kit}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Con entorno virtual activado
+pip install google-cloud-aiagent
+pip install google-cloud-aiplatform>=1.38
+
+# Instalar dependencias adicionales recomendadas
+pip install langchain
+pip install langchain-google-vertexai
+pip install google-generativeai
+pip install pandas numpy matplotlib  # Para procesamiento de datos
+pip install jupyter notebook  # Para experimentacion interactiva
+
+# Verificar instalacion
+python -c "import google.cloud.aiagent as aiagent; print(f'ADK Version: {aiagent.__version__}')"
+\end{lstlisting}
+
+\subsection{Paso 6: Configuración del Entorno de Desarrollo}
+\begin{lstlisting}[style=localstyle, language=python]
+# Crear archivo de configuracion local: config_adk.py
+import os
+from google.oauth2 import service_account
+
+# Configuracion base
+PROJECT_ID = "mi-proyecto-adk"
+LOCATION = "us-central1"
+MODEL_NAME = "gemini-1.5-pro"  # Alternativa: "gemini-1.5-flash"
+
+# Ruta a las credenciales (ajustar segun tu sistema)
+CREDENTIALS_PATH = os.path.expanduser("~/adk-key.json")
+
+# Validar que el archivo existe
+if not os.path.exists(CREDENTIALS_PATH):
+    raise FileNotFoundError(f"Credenciales no encontradas en: {CREDENTIALS_PATH}")
+
+# Cargar credenciales
+credentials = service_account.Credentials.from_service_account_file(
+    CREDENTIALS_PATH,
+    scopes=["https://www.googleapis.com/auth/cloud-platform"]
+)
+
+# Configurar variables de entorno
+os.environ["GOOGLE_CLOUD_PROJECT"] = PROJECT_ID
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = CREDENTIALS_PATH
+
+print("Configuracion cargada correctamente")
+print(f"Proyecto: {PROJECT_ID}")
+print(f"Modelo: {MODEL_NAME}")
+\end{lstlisting}
+
+\section{Desarrollo del Agente de IA}
+
+\subsection{Paso 7: Crear un Agente Básico Local}
+\begin{lstlisting}[style=localstyle, language=python]
+# archivo: mi_agente_local.py
+import os
+import sys
+from google.cloud import aiplatform
+from google.cloud import aiagent
+from google.cloud.aiagent import components
+
+# Inicializar Vertex AI
+aiplatform.init(
+    project=os.environ["GOOGLE_CLOUD_PROJECT"],
+    location="us-central1",
+    credentials=credentials  # Del paso anterior
+)
+
+class MiAgenteLocal:
+    def __init__(self, model_name="gemini-1.5-pro"):
+        """Inicializar agente con componentes basicos"""
+        
+        # 1. Crear instancia del agente
+        self.agent = aiagent.Agent(
+            name="agente-local-demo",
+            model=model_name,
+            instructions="""Eres un asistente especializado ejecutandose localmente.
+            Proporciona respuestas precisas y utiles.
+            Si no sabes algo, admitelo honestamente."""
+        )
+        
+        # 2. Agregar memoria de conversacion
+        self.memory = components.ConversationMemory(
+            max_turns=20,
+            storage_path="./conversation_memory.json"
+        )
+        self.agent.add_component(self.memory)
+        
+        # 3. Configurar planificador
+        self.planner = components.ReActPlanner()
+        self.agent.add_component(self.planner)
+        
+        print(f"Agente inicializado con modelo: {model_name}")
+    
+    def agregar_herramienta_busqueda(self, api_key=None, cse_id=None):
+        """Agregar herramienta de busqueda web (opcional)"""
+        if api_key and cse_id:
+            search_tool = components.WebSearchTool(
+                api_key=api_key,
+                custom_search_engine_id=cse_id
+            )
+            self.agent.add_tool(search_tool)
+            print("Herramienta de busqueda agregada")
+    
+    def agregar_herramienta_codigo(self):
+        """Agregar herramienta para ejecutar codigo Python"""
+        code_tool = components.CodeInterpreterTool(
+            safe_execution=True,
+            timeout_seconds=30
+        )
+        self.agent.add_tool(code_tool)
+        print("Herramienta de codigo agregada")
+    
+    def consultar(self, pregunta):
+        """Ejecutar consulta con el agente"""
+        print(f"\n[Usuario]: {pregunta}")
+        response = self.agent.run(pregunta)
+        print(f"\n[Agente]: {response.text}")
+        return response
+    
+    def guardar_estado(self, ruta="./estado_agente.json"):
+        """Guardar estado del agente en disco"""
+        self.agent.save(ruta)
+        print(f"Estado guardado en: {ruta}")
+    
+    def cargar_estado(self, ruta="./estado_agente.json"):
+        """Cargar estado del agente desde disco"""
+        if os.path.exists(ruta):
+            self.agent.load(ruta)
+            print(f"Estado cargado desde: {ruta}")
+
+# Uso basico
+if __name__ == "__main__":
+    # Crear instancia del agente
+    agente = MiAgenteLocal(model_name="gemini-1.5-flash")
+    
+    # Ejemplo de consulta
+    respuesta = agente.consultar(
+        "Explica los beneficios de desarrollar agentes de IA localmente"
+    )
+    
+    # Guardar historial
+    agente.guardar_estado()
+\end{lstlisting}
+
+\subsection{Paso 8: Agente con Funciones Personalizadas}
+\begin{lstlisting}[style=localstyle, language=python]
+# archivo: agente_personalizado.py
+from typing import Dict, Any
+import json
+from datetime import datetime
+
+class AgentePersonalizado:
+    def __init__(self):
+        # Herramientas personalizadas
+        self.custom_tools = {
+            "calculadora": self._herramienta_calculadora,
+            "formateador_json": self._herramienta_json,
+            "obtener_fecha": self._herramienta_fecha
+        }
+        
+    def _herramienta_calculadora(self, expresion: str) -> str:
+        """Evaluar expresion matematica segura"""
+        try:
+            # Solo operaciones matematicas basicas
+            allowed_chars = set("0123456789+-*/(). ")
+            if all(c in allowed_chars for c in expresion):
+                result = eval(expresion)
+                return f"Resultado: {result}"
+            else:
+                return "Error: Expresion contiene caracteres no permitidos"
+        except Exception as e:
+            return f"Error en calculo: {str(e)}"
+    
+    def _herramienta_json(self, data: str) -> str:
+        """Formatear y validar JSON"""
+        try:
+            parsed = json.loads(data)
+            return json.dumps(parsed, indent=2, ensure_ascii=False)
+        except json.JSONDecodeError as e:
+            return f"JSON invalido: {str(e)}"
+    
+    def _herramienta_fecha(self, formato: str = "%Y-%m-%d") -> str:
+        """Obtener fecha actual"""
+        return datetime.now().strftime(formato)
+
+# Integracion con ADK
+def crear_agente_completo():
+    from google.cloud import aiagent
+    
+    agent = aiagent.Agent(
+        name="agente-avanzado",
+        model="gemini-1.5-pro",
+        instructions="Usa las herramientas disponibles para ayudar al usuario"
+    )
+    
+    # Agregar herramientas personalizadas via funciones
+    personalizado = AgentePersonalizado()
+    
+    # Convertir herramientas personalizadas al formato ADK
+    for name, func in personalizado.custom_tools.items():
+        tool_wrapper = aiagent.Tool.from_function(
+            func=func,
+            name=name,
+            description=f"Herramienta para {name}"
+        )
+        agent.add_tool(tool_wrapper)
+    
+    return agent
+\end{lstlisting}
+
+\section{Pruebas y Validación}
+
+\subsection{Paso 9: Suite de Pruebas Local}
+\begin{lstlisting}[style=localstyle, language=python]
+# archivo: test_agente.py
+import unittest
+from mi_agente_local import MiAgenteLocal
+
+class TestAgenteLocal(unittest.TestCase):
+    
+    @classmethod
+    def setUpClass(cls):
+        """Inicializar agente una vez para todas las pruebas"""
+        cls.agente = MiAgenteLocal(model_name="gemini-1.5-flash")
+    
+    def test_inicializacion(self):
+        """Verificar que el agente se inicializa correctamente"""
+        self.assertIsNotNone(self.agente.agent)
+        self.assertIsNotNone(self.agente.memory)
+    
+    def test_consulta_basica(self):
+        """Probar consulta simple"""
+        respuesta = self.agente.consultar("Hola, como estas?")
+        self.assertIsNotNone(respuesta)
+        self.assertIsInstance(respuesta.text, str)
+        self.assertGreater(len(respuesta.text), 10)
+    
+    def test_memoria_conversacion(self):
+        """Verificar que la memoria funciona"""
+        pregunta1 = "Mi nombre es Carlos"
+        self.agente.consultar(pregunta1)
+        
+        pregunta2 = "Cual es mi nombre?"
+        respuesta = self.agente.consultar(pregunta2)
+        
+        # Verificar que recuerda el contexto
+        self.assertIn("Carlos", respuesta.text)
+    
+    def test_guardado_carga(self):
+        """Probar persistencia del agente"""
+        ruta_test = "./test_estado.json"
+        
+        # Guardar estado
+        self.agente.guardar_estado(ruta_test)
+        
+        # Crear nuevo agente y cargar estado
+        nuevo_agente = MiAgenteLocal()
+        nuevo_agente.cargar_estado(ruta_test)
+        
+        self.assertIsNotNone(nuevo_agente.agent)
+        
+        # Limpiar archivo de prueba
+        import os
+        if os.path.exists(ruta_test):
+            os.remove(ruta_test)
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+\end{lstlisting}
+
+\subsection{Paso 10: Ejecución y Monitoreo}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Ejecutar el agente en modo interactivo
+python -i mi_agente_local.py
+
+# Ejecutar pruebas unitarias
+python -m pytest test_agente.py -v
+
+# Monitorear uso de recursos durante ejecucion
+# Linux:
+htop  # En otra terminal
+nvidia-smi -l 1  # Para GPU NVIDIA
+
+# Windows:
+# Abrir Administrador de Tareas -> Rendimiento
+
+# Ejecutar con logging detallado
+import logging
+logging.basicConfig(level=logging.DEBUG)
+\end{lstlisting}
+
+\section{Despliegue y Producción}
+
+\subsection{Paso 11: Configuración para Producción}
+\begin{lstlisting}[style=localstyle, language=python]
+# archivo: deployment_config.py
+import yaml
+
+config_produccion = {
+    "version": "1.0",
+    "agent": {
+        "name": "agente-produccion",
+        "model": "gemini-1.5-pro",
+        "max_concurrent_requests": 10,
+        "timeout_seconds": 60,
+        "rate_limit": {
+            "requests_per_minute": 100,
+            "requests_per_day": 10000
+        }
+    },
+    "monitoring": {
+        "enable_logging": True,
+        "log_level": "INFO",
+        "metrics": ["latency", "success_rate", "token_usage"],
+        "alerting": {
+            "email": "admin@example.com",
+            "thresholds": {
+                "error_rate": 0.05,
+                "p99_latency": 5000  # ms
+            }
+        }
+    },
+    "security": {
+        "api_key_required": True,
+        "cors_origins": ["https://tudominio.com"],
+        "input_validation": True,
+        "output_sanitization": True
+    }
+}
+
+# Guardar configuracion
+with open("config_produccion.yaml", "w") as f:
+    yaml.dump(config_produccion, f, default_flow_style=False)
+\end{lstlisting}
+
+\subsection{Paso 12: Contenerización (Opcional)}
+\begin{lstlisting}[style=localstyle, language=bash]
+# Dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copiar requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copiar codigo de la aplicacion
+COPY . .
+
+# Crear usuario no root
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Variables de entorno
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/key.json
+ENV PYTHONPATH=/app
+ENV PORT=8080
+
+# Exponer puerto
+EXPOSE 8080
+
+# Comando de inicio
+CMD ["python", "app/main.py"]
+\end{lstlisting}
+
+\section{Solución de Problemas Comunes}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|p{5cm}|p{5cm}|p{5cm}|}
+\hline
+\textbf{Problema} & \textbf{Causa Probable} & \textbf{Solución} \\
+\hline
+Error de autenticación & Credenciales no configuradas o inválidas & Verificar GOOGLE\_APPLICATION\_CREDENTIALS, regenerar clave JSON \\
+\hline
+Falta de memoria & Modelo muy grande o muchas herramientas & Reducir tamaño de modelo, usar gemini-1.5-flash, aumentar swap \\
+\hline
+Lentitud en respuestas & Conexión lenta a APIs de Google & Usar modelo local (si GPU disponible), optimizar consultas \\
+\hline
+ImportError: módulo no encontrado & Entorno virtual no activado o dependencias faltantes & Activar entorno virtual, pip install -r requirements.txt \\
+\hline
+Límites de cuota excedidos & Uso excesivo de APIs de Google & Solicitar aumento de cuota, implementar caché, monitorear uso \\
+\hline
+Problemas con WSL2 en Windows & Configuración incorrecta de WSL2 & wsl --update, aumentar memoria asignada en .wslconfig \\
+\hline
+\end{tabular}
+\caption{Problemas comunes y soluciones en desarrollo local}
+\end{table}
+
+\section{Recursos y Referencias}
+
+\begin{itemize}
+\item \textbf{Documentación Oficial}:
+  \begin{itemize}
+  \item Google ADK: \url{https://cloud.google.com/agent-development-kit}
+  \item Vertex AI: \url{https://cloud.google.com/vertex-ai}
+  \item Gemini API: \url{https://cloud.google.com/vertex-ai/generative-ai}
+  \end{itemize}
+  
+\item \textbf{Repositorios de Ejemplo}:
+  \begin{itemize}
+  \item GitHub ADK: \url{https://github.com/google-cloud-ai/agent-development-kit}
+  \item Ejemplos oficiales: \url{https://github.com/GoogleCloudPlatform/ai-agent-examples}
+  \end{itemize}
+  
+\item \textbf{Comunidad y Soporte}:
+  \begin{itemize}
+  \item Stack Overflow: \url{https://stackoverflow.com/questions/tagged/google-cloud-ai}
+  \item Google Cloud Community: \url{https://www.googlecloudcommunity.com}
+  \end{itemize}
+
+\item \textbf{Herramientas Adicionales}:
+  \begin{itemize}
+  \item LangChain: \url{https://python.langchain.com}
+  \item LlamaIndex: \url{https://www.llamaindex.ai}
+  \item Ollama (para modelos locales): \url{https://ollama.ai}
+  \end{itemize}
+\end{itemize}
+
+\section{Conclusión}
+
+Desarrollar agentes de IA con Google ADK en una PC local ofrece mayor control, flexibilidad y privacidad. Esta guía proporciona los pasos necesarios desde la configuración del hardware hasta el despliegue de agentes funcionales. Para mantener el entorno actualizado, se recomienda:
+
+\begin{enumerate}
+\item Actualizar regularmente los paquetes Python: \texttt{pip list --outdated}
+\item Revisar los cambios en las APIs de Google Cloud
+\item Mantener backups de las configuraciones y credenciales
+\item Monitorear el uso y costos en Google Cloud Console
+\end{enumerate}
+
+Con esta configuración, podrás desarrollar, probar y refinar agentes de IA complejos directamente desde tu computadora personal antes de desplegarlos en entornos de producción.
+
+\end{document}

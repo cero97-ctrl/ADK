@@ -1,0 +1,213 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+\usepackage{geometry}
+\geometry{a4paper, margin=2cm}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\definecolor{codebackground}{rgb}{0.95,0.95,0.92}
+\definecolor{codecomment}{rgb}{0.5,0.5,0.5}
+\definecolor{codekeyword}{rgb}{0,0,0.5}
+\definecolor{codestring}{rgb}{0.58,0,0.82}
+
+\lstdefinestyle{colabstyle}{
+    backgroundcolor=\color{codebackground},
+    commentstyle=\color{codecomment},
+    keywordstyle=\color{codekeyword},
+    numberstyle=\tiny\color{codecomment},
+    stringstyle=\color{codestring},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single,
+    framerule=0.5pt
+}
+
+\title{Guía para Desarrollo de Agentes de IA en Google Colab con Google ADK}
+\author{}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Requerimientos Previos}
+\subsection{Requerimientos de Hardware en Google Colab}
+\begin{itemize}
+    \item \textbf{Tipo de entorno}: Se recomienda utilizar el entorno de ejecución con GPU (NVIDIA Tesla T4, P100, V100 o similar) para tareas que involucren modelos grandes.
+    \item \textbf{Memoria RAM}: Mínimo 12 GB (preferiblemente 25+ GB para agentes complejos).
+    \item \textbf{Almacenamiento}: El espacio gratuito es limitado ($\sim$80~GB). Para proyectos grandes, considere montar Google Drive.
+\end{itemize}
+
+\subsection{Requerimientos de Software y Configuración}
+\begin{itemize}
+    \item \textbf{Cuenta de Google}: Necesaria para acceder a Colab y Google Cloud APIs.
+    \item \textbf{Google Cloud Project}: Se requiere un proyecto en Google Cloud Platform (GCP) con las APIs habilitadas.
+    \item \textbf{Autenticación}: Credenciales de servicio GCP en formato JSON.
+    \item \textbf{Versión de Python}: 3.9 o superior (predeterminado en Colab).
+    \item \textbf{Sistema operativo}: Ubuntu 20.04+ (base de Colab).
+\end{itemize}
+
+\section{Paso a Paso de Configuración y Desarrollo}
+
+\subsection{Paso 1: Configuración Inicial del Entorno Colab}
+\begin{enumerate}
+    \item Abre Google Colab: \url{https://colab.research.google.com/}
+    \item Crea un nuevo notebook: \textit{Archivo → Nuevo notebook}
+    \item Cambia el entorno de ejecución: \textit{Runtime → Change runtime type → GPU (T4)}
+    \item Verifica la GPU asignada:
+\end{enumerate}
+
+\begin{lstlisting}[style=colabstyle, language=Python]
+!nvidia-smi -L
+\end{lstlisting}
+
+\subsection{Paso 2: Instalación de Dependencias}
+\begin{lstlisting}[style=colabstyle, language=Python]
+# Actualizar pip e instalar ADK
+!pip install --upgrade pip
+!pip install google-cloud-aiagent
+!pip install google-cloud-aiplatform
+
+# Instalar dependencias adicionales
+!pip install langchain
+!pip install google-generativeai
+!pip install langchain-google-vertexai
+\end{lstlisting}
+
+\subsection{Paso 3: Autenticación en Google Cloud}
+\begin{lstlisting}[style=colabstyle, language=Python]
+from google.colab import auth
+auth.authenticate_user()
+
+# Montar Google Drive (opcional)
+from google.colab import drive
+drive.mount('/content/drive')
+
+# Configurar variables de entorno
+import os
+os.environ['GOOGLE_CLOUD_PROJECT'] = 'tu-project-id'  # Reemplaza con tu ID
+
+# Autenticar con cuenta de servicio (alternativa)
+# Sube tu archivo JSON de credenciales
+from google.cloud import aiplatform
+from google.oauth2 import service_account
+
+credentials = service_account.Credentials.from_service_account_file(
+    '/content/credenciales.json'  # Ruta a tu archivo JSON
+)
+aiplatform.init(project='tu-project-id', credentials=credentials)
+\end{lstlisting}
+
+\subsection{Paso 4: Verificar Versiones y Accesos}
+\begin{lstlisting}[style=colabstyle, language=Python]
+import sys
+print(f"Python: {sys.version}")
+
+import google.cloud.aiagent as aiagent
+print(f"ADK Version: {aiagent.__version__}")
+
+# Verificar APIs habilitadas
+!gcloud services list --enabled --project=$GOOGLE_CLOUD_PROJECT
+\end{lstlisting}
+
+\subsection{Paso 5: Crear un Agente Básico con ADK}
+\begin{lstlisting}[style=colabstyle, language=Python]
+from google.cloud import aiagent
+from google.cloud.aiagent import components
+
+# 1. Inicializar el agente
+agent = aiagent.Agent(
+    name="mi-primer-agente",
+    model="gemini-1.5-pro",  # o "gemini-1.5-flash"
+    instructions="Eres un asistente util especializado en analisis de datos."
+)
+
+# 2. Agregar herramientas (ejemplo: busqueda web)
+search_tool = components.WebSearchTool(
+    api_key="TU_API_KEY",  # Reemplazar con clave real
+    custom_search_engine_id="TU_CSE_ID"
+)
+agent.add_tool(search_tool)
+
+# 3. Agregar memoria
+memory = components.ConversationMemory(
+    max_turns=10,
+    storage_path="/content/memory.json"
+)
+agent.add_component(memory)
+
+# 4. Configurar el planificador
+planner = components.ReActPlanner()
+agent.add_component(planner)
+\end{lstlisting}
+
+\subsection{Paso 6: Probar el Agente}
+\begin{lstlisting}[style=colabstyle, language=Python]
+# Probar con una consulta simple
+response = agent.run("Cual es el precio actual de Bitcoin?")
+print("Respuesta del agente:", response.text)
+
+# Ver historial de conversacion
+history = memory.get_history()
+for turn in history:
+    print(f"{turn.role}: {turn.content}")
+\end{lstlisting}
+
+\subsection{Paso 7: Despliegue en Vertex AI (Opcional)}
+\begin{lstlisting}[style=colabstyle, language=Python]
+# Exportar el agente
+agent.export_to_vertex(
+    project_id=os.environ['GOOGLE_CLOUD_PROJECT'],
+    region="us-central1",
+    display_name="MiAgenteColab"
+)
+
+# O crear endpoint directo
+endpoint = agent.deploy(
+    machine_type="n1-standard-4",
+    min_replica_count=1,
+    max_replica_count=3
+)
+print(f"Endpoint creado: {endpoint.resource_name}")
+\end{lstlisting}
+
+\section{Consideraciones Finales}
+\begin{itemize}
+    \item \textbf{Costos}: Monitorea el uso en Google Cloud Console. Los modelos Gemini y Vertex AI tienen costos asociados.
+    \item \textbf{Límites de Colab}: Las sesiones gratuitas expiran a las 12 horas. Guarda el estado en Drive.
+    \item \textbf{Mejores prácticas}:
+    \begin{enumerate}
+        \item Guarda el notebook frecuentemente (Ctrl+S).
+        \item Usa celdas de markdown para documentación.
+        \item Prueba con consultas simples antes de implementar lógica compleja.
+        \item Revoca las credenciales de servicio cuando no las uses.
+    \end{enumerate}
+    \item \textbf{Solución de problemas}:
+    \begin{itemize}
+        \item Error de autenticación: Verifica que las APIs estén habilitadas.
+        \item Falta de memoria: Reduce el tamaño del modelo o usa batch processing.
+        \item Timeout: Usa \texttt{!kill -9 -1} para reiniciar el entorno.
+    \end{itemize}
+\end{itemize}
+
+\section{Recursos Adicionales}
+\begin{itemize}
+    \item Documentación oficial ADK: \url{https://cloud.google.com/agent-development-kit}
+    \item Repositorio GitHub: \url{https://github.com/google-cloud-ai/agent-development-kit}
+    \item Ejemplos de Colab: \url{https://github.com/googlecolab/colabtools}
+    \item Foro de soporte: \url{https://stackoverflow.com/questions/tagged/google-colab}
+\end{itemize}
+
+\end{document}

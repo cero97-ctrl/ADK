@@ -1,0 +1,1 @@
+git add -A && if ! git diff --staged --quiet; then git commit -m "WIP: guardar cambios antes de pull" || true; else echo "No changes to commit"; fi && chmod +x update_repo.sh && ./update_repo.sh --remote origin --branch master --push
