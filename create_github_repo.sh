@@ -65,7 +65,8 @@ if gh repo view "$REPO_NAME" >/dev/null 2>&1; then
   # try to get HTTPS clone URL
   CLONE_URL=$(gh repo view "$REPO_NAME" --json cloneUrl --jq '.cloneUrl')
   if git remote get-url "$REMOTE_NAME" >/dev/null 2>&1; then
-    echo "Remote $REMOTE_NAME already exists: $(git remote get-url $REMOTE_NAME)"
+    echo "Remote $REMOTE_NAME already exists. Ensuring HTTPS URL to avoid SSH errors..."
+    git remote set-url "$REMOTE_NAME" "$CLONE_URL"
   else
     git remote add "$REMOTE_NAME" "$CLONE_URL"
   fi
@@ -74,7 +75,11 @@ if gh repo view "$REPO_NAME" >/dev/null 2>&1; then
   git push --tags "$REMOTE_NAME" || true
 else
   echo "Creating repository $REPO_NAME on GitHub (visibility: $VISIBILITY) and pushing..."
-  gh repo create "$REPO_NAME" --"$VISIBILITY" --source=. --remote="$REMOTE_NAME" --push
+  gh repo create "$REPO_NAME" --"$VISIBILITY" --source=. --remote="$REMOTE_NAME"
+  # Ensure HTTPS remote to avoid SSH errors
+  CLONE_URL=$(gh repo view "$REPO_NAME" --json cloneUrl --jq '.cloneUrl')
+  git remote set-url "$REMOTE_NAME" "$CLONE_URL"
+  git push -u "$REMOTE_NAME" --all
 fi
 
 # Summary
