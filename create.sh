@@ -10,11 +10,13 @@ set -euo pipefail
 # Get the directory where the script is located
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
  
-REPO_NAME="${1:-ADK}"
+LOCAL_DIR="${4:-$(pwd)}"
+CURRENT_DIR_NAME=$(basename "$LOCAL_DIR")
+
+REPO_NAME="${1:-$CURRENT_DIR_NAME}"
 VISIBILITY="${2:-public}"   # "public" or "private"
 REMOTE_NAME="${3:-origin}"
-LOCAL_DIR="${4:-$SCRIPT_DIR}"
- 
+
 echo "Repository name: $REPO_NAME"
 echo "Visibility: $VISIBILITY"
 echo "Remote name: $REMOTE_NAME"
@@ -40,6 +42,12 @@ if [ ! -d ".git" ]; then
   git init
 fi
 
+# Copy maintenance scripts from the source directory
+echo "Copying maintenance scripts..."
+cp "$SCRIPT_DIR/update.sh" .
+cp "$SCRIPT_DIR/update_repo.sh" .
+chmod +x update.sh update_repo.sh
+
 # Ensure there is a current branch
 CURRENT_BRANCH=$(git symbolic-ref --quiet --short HEAD || echo "")
 if [ -z "$CURRENT_BRANCH" ]; then
@@ -54,7 +62,7 @@ fi
 # Stage and commit if needed
 git add -A
 if ! git diff --staged --quiet; then
-  git commit -m "Initial commit for ADK project" || true
+  git commit -m "Initial commit for $REPO_NAME" || true
 else
   echo "No changes to commit."
 fi
@@ -96,5 +104,9 @@ USER_LOGIN=$(gh api user --jq .login)
 if [ -n "$USER_LOGIN" ]; then
   echo "Repository URL: https://github.com/$USER_LOGIN/$REPO_NAME"
 fi
+
+# Open repository in browser
+echo "Opening repository in browser..."
+gh repo view "$REPO_NAME" --web || true
 
 echo "Done."
