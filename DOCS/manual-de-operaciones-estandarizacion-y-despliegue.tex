@@ -1,0 +1,324 @@
+\documentclass[a4paper,12pt]{article}
+\usepackage[top=2.5cm,bottom=2.5cm,left=2.5cm,right=2.5cm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{listings}
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    tabsize=4
+}
+
+% Better font handling and rerunfilecheck/bookmark fix:
+\usepackage{lmodern}      % more font shapes to avoid substitution warnings
+\usepackage{bookmark}     % avoids rerunfilecheck warning about outlines
+\usepackage{iftex}        % detect engine and load appropriate font packages
+
+\ifPDFTeX
+  % pdfLaTeX fallback (limited Unicode/CJK support)
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else
+  % Prefer XeLaTeX or LuaLaTeX for full Unicode and CJK; install a suitable CJK font locally
+  \usepackage{fontspec}
+  \usepackage{xeCJK}
+  \setmainfont{Latin Modern Roman}
+  % Adjust the CJK font name to one installed on your system (e.g., "Noto Sans CJK SC", "SimSun")
+  \setCJKmainfont{Noto Sans CJK SC}
+\fi
+
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue
+}
+
+\usepackage{graphicx}
+\usepackage{csquotes}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+
+\newtcolorbox{userbox}{
+    colback=blue!5,
+    colframe=blue!50,
+    title=用户,
+    fonttitle=\bfseries,
+    breakable
+}
+
+\newtcolorbox{assistantbox}{
+    colback=green!5,
+    colframe=green!50,
+    title=助手,
+    fonttitle=\bfseries,
+    breakable
+}
+
+\title{Manual de Operaciones: Estandarizacion y Despliegue de Agentes de IA con Google ADK}
+\author{CESAR RODRIGUEZ}
+\date{22/1/2026, 1:07:23 p. m.}
+
+\begin{document}
+
+\maketitle
+
+\section{Manual de Operaciones: Estandarizacion y Despliegue de Agentes de IA con Google ADK}
+
+Este manual establece los lineamientos tecnicos y operativos fundamentales para el ciclo de vida de agentes de inteligencia artificial utilizando el \textbf{Agent Development Kit (ADK)} de Google Cloud. Como arquitectos de soluciones, nuestra prioridad es garantizar la paridad absoluta entre los entornos de desarrollo (Local/Colab) y produccion en Vertex AI, asegurando la independencia de los despliegues y la robustez de los sistemas autonomos mediante la estandarizacion rigurosa de stacks tecnologicos y protocolos de seguridad.
+\subsection{1. Fundamentos y Preparacion del Entorno de Desarrollo}
+
+La estandarizacion del entorno no es solo una buena practica, sino una necesidad estrategica para mitigar riesgos de regresion y asegurar que las capacidades de razonamiento del modelo se mantengan constantes. Un entorno fragmentado introduce variables no controladas en la ejecucion de herramientas (tools) y en la gestion de la memoria, lo que puede comprometer la fiabilidad del agente en produccion.
+\subsubsection{1.1. Evaluacion de Especificaciones de Hardware}
+
+El rendimiento de la inferencia y la capacidad de orquestacion dependen directamente del hardware subyacente. Mientras que el desarrollo local ofrece mayor privacidad y control, los entornos en la nube como Colab permiten acceso inmediato a aceleracion de hardware de alto nivel.
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{3.5cm} >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{4.5cm}}
+\toprule
+Componente & Google Colab (Cloud) & Desarrollo Local (Minimo) & Desarrollo Local (Recomendado) \\
+\midrule
+CPU & Gestionado (Intel Xeon) & Intel i5 (8ª gen) / AMD eq. & Intel i7/i9 (11ª+ gen) / Ryzen 7/9 \\
+GPU & NVIDIA T4 / P100 / V100 & Integrada & NVIDIA RTX 3060+ (8+ GB VRAM) \\
+RAM & 12 GB - 25+ GB & 16 GB DDR4 & 32 GB DDR4 o superior \\
+Almacenamiento & \textasciitilde{}80 GB (SSD) & 256 GB SSD (50 GB libres) & 512 GB NVMe SSD o superior \\
+Software GPU & Preinstalado & N/A & CUDA Toolkit 11.8/12.0 + cuDNN \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La eleccion del hardware impacta la latencia de respuesta; para modelos como Gemini 1.5 Pro, una GPU con alta VRAM permite gestionar ventanas de contexto extensas sin degradacion del throughput.
+\subsubsection{1.2. Configuracion del Stack de Software}
+
+Para entornos Windows, es mandatorio el uso de \textbf{WSL2} (Ubuntu 22.04 LTS recomendado) para asegurar la compatibilidad con las librerias nativas de Linux utilizadas en contenedores de produccion. El stack debe limitarse a Python 3.9, 3.10 o 3.11, dado que la version 3.12 presenta incompatibilidades conocidas con ciertas dependencias de Vertex AI. Es indispensable contar con Git 2.30+ para el control de versiones y Docker Desktop para los flujos de trabajo de contenerizacion.
+\subsubsection{1.3. Instalacion de Dependencias Criticas}
+
+El ecosistema ADK requiere componentes base y librerias de procesamiento de datos para la experimentacion avanzada. Ejecute el siguiente bloque en su entorno virtual:
+\begin{lstlisting}
+# Actualizacion de core y plataforma
+pip install --upgrade pip
+pip install google-cloud-aiagent google-cloud-aiplatform>=1.38
+
+# Ecosistema de LLMs y Vertex AI
+pip install langchain google-generativeai langchain-google-vertexai
+
+# Procesamiento de datos y experimentacion
+pip install pandas numpy matplotlib jupyter notebook
+
+\end{lstlisting}
+
+Una vez finalizada la instalacion, valide la integridad del entorno consultando la version del ADK: \texttt{python -c "import google.cloud.aiagent as aiagent; print(f'ADK Version: \{aiagent.\_\_version\_\_\}')"}.
+\subsection{2. Protocolo de Seguridad y Gestion de Credenciales en GCP}
+
+La gestion de identidades y accesos (IAM) es el perimetro de seguridad mas critico en operaciones de IA. La filtracion de una clave de cuenta de servicio no solo compromete la privacidad de los datos, sino que permite el uso no autorizado de recursos de computo de alto costo. Adoptamos el principio de \textbf{minimo privilegio} para restringir el alcance de cada agente a sus funciones estrictamente necesarias.
+\subsubsection{2.1. Configuracion del Proyecto y APIs}
+
+El aprovisionamiento del entorno local comienza con la autenticacion del usuario y la habilitacion de los servicios de orquestacion en la Google Cloud Console o mediante el SDK de gcloud:
+1. \textbf{Autenticacion Inicial:}
+2. \textbf{Inicializacion y APIs:}\texttt{gcloud init} (seleccione su proyecto y region \texttt{us-central1}).Habilite los servicios: \texttt{aiplatform.googleapis.com}, \texttt{cloudresourcemanager.googleapis.com} y \texttt{iamcredentials.googleapis.com}.
+\subsubsection{2.2. Gestion de Cuentas de Servicio}
+
+Se debe instanciar una cuenta de servicio dedicada (\texttt{adk-local-sa}) para desacoplar las credenciales personales del entorno de ejecucion:
+\begin{lstlisting}
+gcloud iam service-accounts create adk-local-sa --display-name="Cuenta ADK Local"
+gcloud projects add-iam-policy-binding [PROJECT_ID] \
+    --member="serviceAccount:adk-local-sa@[PROJECT_ID].iam.gserviceaccount.com" \
+    --role="roles/aiplatform.user"
+
+\end{lstlisting}
+
+Tras generar la clave JSON mediante \texttt{gcloud iam service-accounts keys create \textasciitilde{}/adk-key.json}, es obligatorio añadir el archivo al \texttt{.gitignore} del repositorio para evitar su exposicion accidental en sistemas de control de versiones.
+\subsubsection{2.3. Variables de Entorno y Autenticacion}
+
+Para que el SDK localice las credenciales de forma transparente, configure la variable \texttt{GOOGLE\_APPLICATION\_CREDENTIALS}. En entornos Colab, se prefiere el metodo \texttt{auth.authenticate\_user()} para sesiones efimeras, mientras que en local se utiliza la ruta absoluta al JSON generado.
+\subsection{3. Arquitectura y Configuracion del Agente de IA}
+
+La arquitectura ADK es modular y se fundamenta en la interaccion entre el modelo, el planificador (Planner) y las herramientas. Esta estructura permite que el agente no solo genere texto, sino que ejecute acciones logicas y mantenga un estado persistente a traves de ciclos de interaccion.
+\subsubsection{3.1. Inicializacion del Agente y Planificacion}
+
+El corazon del sistema es el objeto \texttt{aiagent.Agent}. La seleccion del modelo debe ser balanceada: \textbf{Gemini-1.5-Pro} se reserva para tareas de razonamiento complejo y analisis de gran contexto, mientras que \textbf{Gemini-1.5-Flash} se emplea para optimizar costos y latencia en tareas directas. Es imperativo integrar un \textbf{ReActPlanner}, que dota al agente de la capacidad de "Pensar-Actuar-Observar".
+\subsubsection{3.2. Implementacion de Herramientas (Tools) con Logica Robusta}
+
+En lugar de simples wrappers, las herramientas deben incluir validacion y manejo de errores. A continuacion se presenta una implementacion profesional para un agente con herramientas personalizadas:
+\begin{lstlisting}
+from google.cloud import aiagent
+import json
+from datetime import datetime
+
+class AgentePersonalizado:
+    def _herramienta_calculadora(self, expresion: str) -> str:
+        """Evaluacion segura de expresiones matematicas."""
+        try:
+            allowed_chars = set("0123456789+-*/(). ")
+            if all(c in allowed_chars for c in expresion):
+                return f"Resultado: {eval(expresion)}"
+            return "Error: Caracteres no permitidos."
+        except Exception as e:
+            return f"Error en calculo: {str(e)}"
+
+    def _herramienta_fecha(self, formato: str = "%Y-%m-%d") -> str:
+        """Retorna la fecha actual del sistema."""
+        return datetime.now().strftime(formato)
+
+# Integracion en ADK
+instancia_herramientas = AgentePersonalizado()
+agent = aiagent.Agent(name="agente-ops", model="gemini-1.5-flash")
+
+for name, func in [("calculadora", instancia_herramientas._herramienta_calculadora), 
+                   ("obtener_fecha", instancia_herramientas._herramienta_fecha)]:
+    tool_wrapper = aiagent.Tool.from_function(
+        func=func, name=name, description=f"Herramienta para {name}"
+    )
+    agent.add_tool(tool_wrapper)
+
+\end{lstlisting}
+
+\subsubsection{3.3. Persistencia y Memoria de Conversacion}
+
+La continuidad se gestiona mediante \texttt{ConversationMemory}. El parametro \texttt{max\_turns} es critico para no saturar la ventana de contexto del modelo, mientras que \texttt{storage\_path} permite la persistencia en disco del historial, vital para la recuperacion tras reinicios del servicio.
+\subsection{4. Protocolo de Validacion Tecnica y Pruebas Unitarias}
+
+La fiabilidad de un sistema de IA no puede basarse en pruebas manuales. Es necesario implementar una suite de pruebas automatizadas que valide la logica de los componentes y la recuperacion de la memoria.
+\subsubsection{4.1. Suite de Pruebas con Unittest}
+
+El siguiente script (\texttt{test\_agente.py}) es el estandar para validar la integridad del agente antes de cualquier despliegue:
+\begin{lstlisting}
+import unittest
+import os
+from mi_agente_local import MiAgenteLocal # Asumiendo clase del paso anterior
+
+class TestAgenteLocal(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.agente = MiAgenteLocal(model_name="gemini-1.5-flash")
+
+    def test_inicializacion(self):
+        """Verifica que el agente y sus componentes existan."""
+        self.assertIsNotNone(self.agente.agent)
+        self.assertIsNotNone(self.agente.memory)
+
+    def test_memoria_conversacion(self):
+        """Valida que el agente recuerde informacion en turnos sucesivos."""
+        self.agente.consultar("Mi nombre es Operador-IA")
+        respuesta = self.agente.consultar("Cual es mi nombre?")
+        self.assertIn("Operador-IA", respuesta.text)
+
+    def test_guardado_carga(self):
+        """Prueba la persistencia del estado en disco."""
+        ruta_test = "./test_estado.json"
+        self.agente.guardar_estado(ruta_test)
+        self.assertTrue(os.path.exists(ruta_test))
+        if os.path.exists(ruta_test): os.remove(ruta_test)
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)
+
+\end{lstlisting}
+
+\subsubsection{4.2. Monitoreo de Recursos}
+
+Durante la ejecucion de las pruebas, se debe supervisar el consumo de recursos. En entornos Linux/WSL2, utilice \texttt{htop} para RAM y \texttt{nvidia-smi -l 1} para observar el consumo de VRAM si se utilizan modelos locales o procesamiento paralelo.
+\subsection{5. Parametros de Despliegue y Configuracion de Produccion}
+
+El paso a produccion requiere transformar el codigo experimental en un servicio robusto, escalable y monitoreable mediante infraestructura gestionada.
+\subsubsection{5.1. Configuracion de Produccion (YAML)}
+
+La configuracion se externaliza en archivos YAML para permitir cambios sin modificar el codigo fuente, definiendo limites de tasa y umbrales de alerta:
+\begin{lstlisting}
+version: "1.0"
+agent:
+  name: "agente-produccion"
+  model: "gemini-1.5-pro"
+  timeout_seconds: 60
+  rate_limit:
+    requests_per_minute: 100
+    requests_per_day: 10000
+monitoring:
+  enable_logging: true
+  metrics: ["latency", "success_rate", "token_usage"]
+  alerting:
+    thresholds:
+      error_rate: 0.05
+      p99_latency: 5000 # ms
+
+\end{lstlisting}
+
+\subsubsection{5.2. Despliegue en Vertex AI}
+
+Utilice el metodo \texttt{agent.deploy()} para instanciar el agente en la infraestructura de Google. Se recomienda el tipo de maquina \texttt{n1-standard-4} y configurar el auto-escalado (\texttt{min\_replica\_count=1}, \texttt{max\_replica\_count=3}) para manejar la variabilidad del trafico sin incurrir en costos excesivos.
+\subsubsection{5.3. Contenerizacion y Portabilidad}
+
+El \texttt{Dockerfile} garantiza que el agente se ejecute en un entorno inmutable. Se utiliza una imagen \texttt{slim} para minimizar vulnerabilidades y se define un usuario no root por seguridad.
+\begin{lstlisting}
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# Seguridad: Ejecucion como usuario no root
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+ENV GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/key.json
+ENV PYTHONPATH=/app
+ENV PORT=8080
+
+EXPOSE 8080
+
+CMD ["python", "app/main.py"]
+
+\end{lstlisting}
+
+\subsection{6. Resolucion de Problemas y Mantenimiento Operativo}
+
+La estabilidad a largo plazo depende de un marco proactivo de resolucion de incidencias.
+\subsubsection{6.1. Matriz de Solucion de Problemas}
+
+\begin{table}[htbp]
+\centering
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{5.0cm} >{\raggedright\arraybackslash}p{6.0cm}}
+\toprule
+Problema & Causa Probable & Solucion Tecnica \\
+\midrule
+Error de autenticacion & Credenciales invalidas o expiradas & Verificar GOOGLE\_APPLICATION\_CREDENTIALS; regenerar JSON. \\
+ImportError: modulo no encontrado & Entorno virtual desactivado & Activar venv; ejecutar pip install -r requirements.txt. \\
+Limites de cuota excedidos & Uso excesivo de APIs de Vertex & Solicitar aumento en GCP Console; implementar cache de respuestas. \\
+Problemas con WSL2 & Configuracion de memoria insuficiente & Ejecutar wsl --update; ajustar RAM en .wslconfig. \\
+Falta de memoria & Modelo muy pesado o contexto grande & Migrar a gemini-1.5-flash; reducir max\_turns. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{6.2. Rutinas de Mantenimiento}
+
+1. \textbf{Auditoria de Versiones:} Ejecute \texttt{pip list --outdated} mensualmente para parchar vulnerabilidades.
+2. \textbf{Higiene de Secretos:} Revocar y rotar las claves JSON de las cuentas de servicio cada 90 dias.
+3. \textbf{Optimizacion de Costos:} Analizar regularmente el consumo de tokens en la consola de Google Cloud para ajustar los limites de tasa del agente.
+
+--------------------------------------------------------------------------------
+
+\textbf{LISTA DE VERIFICACIoN FINAL PARA LANZAMIENTO}
+• [ ] Credenciales JSON excluidas del control de versiones mediante \texttt{.gitignore}.
+• [ ] \texttt{ReActPlanner} integrado y configurado en el agente.
+• [ ] Suite de pruebas unitarias ejecutada con 100\% de exito.
+• [ ] Archivo \texttt{config\_produccion.yaml} validado con umbrales de alerta.
+• [ ] Dockerfile configurado con usuario \texttt{appuser} (no-root).
+
+\end{document}
